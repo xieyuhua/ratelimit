@@ -1,0 +1,4 @@
+github.com/yudeguang/iox v0.0.0-20220912082704-297952f8e912 h1:38jG5Ar6KtDhahRr1eI0lHI2BzQSk/izqE2Aqn9EXmI=
+github.com/yudeguang/iox v0.0.0-20220912082704-297952f8e912/go.mod h1:/yeZ8yPyE9g4jM7Z8LPKwi1L9lDGmLGQ0ywR4rtdNdY=
+github.com/yudeguang/ratelimit v0.0.0-20220913063830-350281ccb270 h1:u0Y1Nf/omM+n57NwowI0yCznVXvPnfHk8s6FEqFObi4=
+github.com/yudeguang/ratelimit v0.0.0-20220913063830-350281ccb270/go.mod h1:NcFk/p88iJxUWYrlDIat7mJLufpsHExnYvxUkApkhJc=
