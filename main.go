@@ -23,7 +23,9 @@ func main() {
 // 	test2()
     r = ratelimit.NewRule()
     r.AddRule(time.Second*10, 100)
+    r.AddRule(time.Minute*30, 1000)
 	r.LoadingAndAutoSaveToDisc("test1", time.Second*10) 
+	
 	
 	http.HandleFunc("/reset", reset)
 	http.HandleFunc("/", index)
@@ -35,9 +37,8 @@ func main() {
 	if listenErr != nil {
 		log.Fatal("ListenAndServe: ", listenErr)
 	}
-	
 }
-
+// 重置
 func reset(w http.ResponseWriter, req *http.Request) {
     w.Header().Set("content-type", "text/json")
 	defer func() {
@@ -49,16 +50,15 @@ func reset(w http.ResponseWriter, req *http.Request) {
 		}
 	}()
 	
-	
+	//chery清空访问记录
     r.ManualEmptyVisitorRecordsOf("chery")
-    
-    
     
 	data := fmt.Sprintf("chery清空访问记录前,剩余:%d", r.RemainingVisits("chery"))
 	msg, _ := json.Marshal(&JsonRes{Code: 200, Msg: data })
 	w.Write(msg)
 	return
 }
+// 访问次数
 func index(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("content-type", "text/json")
 	defer func() {
