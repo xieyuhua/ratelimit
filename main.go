@@ -10,7 +10,8 @@ import (
     "net/http"
 	"github.com/yudeguang/ratelimit"
 )
-var  r *ratelimit.Rule
+
+var ratelimits map[string]*ratelimit.Rule
 
 type JsonRes struct {
 	Code int         `json:"code"`
@@ -19,68 +20,111 @@ type JsonRes struct {
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.Ltime)
-// 	test1()
-// 	test2()
-    r = ratelimit.NewRule()
-    r.AddRule(time.Second*10, 100)
-    r.AddRule(time.Minute*30, 1000)
-	r.LoadingAndAutoSaveToDisc("test1", time.Second*10) 
 	
-	
+    ratelimits = make(map[string]*ratelimit.Rule, 0)
+    /*
+    *1、程序写死
+    *2、文件配置
+    *3、读取redis
+    */
+    
+    //ip
+    ratelimits["ip"] = ratelimit.NewRule()//步骤一：初始化
+    ratelimits["ip"].AddRule(time.Second*10, 100)//每10秒只允许访问100次   规则
+    ratelimits["ip"].LoadingAndAutoSaveToDisc("ip", time.Second*10) //从本地磁盘加载历史访问数据
+    
+    //url
+    ratelimits["url"] = ratelimit.NewRule()
+    ratelimits["url"].AddRule(time.Minute*30, 1000)//每30分钟只允许访问1000次
+    ratelimits["url"].AddRule(time.Hour*24, 5000) //每天只允许访问5000次
+    ratelimits["url"].LoadingAndAutoSaveToDisc("url", time.Second*10) 
+    
+
 	http.HandleFunc("/reset", reset)
-	http.HandleFunc("/", index)
+	http.HandleFunc("/", example)
+	
 	
 	log.Println("监听端口", "http://0.0.0.0:8086")
-	
 	listenErr := http.ListenAndServe(":8086", nil)
-	
 	if listenErr != nil {
 		log.Fatal("ListenAndServe: ", listenErr)
 	}
 }
 // 重置
-func reset(w http.ResponseWriter, req *http.Request) {
+func reset(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("content-type", "text/json")
 	defer func() {
 		//捕获 panic
 		if err := recover(); err != nil {
-			log.Println("查询sql发生错误", err)
-    		msg, _ := json.Marshal(&JsonRes{Code: 4000, Msg: " 500 NOT FOUND !"})
+    		msg, _ := json.Marshal(&JsonRes{Code: 4000, Msg: " 500 reset NOT FOUND !"})
     		w.Write(msg)
 		}
 	}()
+	r.ParseForm() // 解析参数
+	qw := r.PostFormValue("qw")
+	
+	//判断是否有值
+	if _, ok := ratelimits[qw]; !ok {
+		msg, _ := json.Marshal(&JsonRes{Code: 404, Msg: " 404 qw NOT FOUND !"})
+		w.Write(msg)
+		return
+	}
 	
 	//chery清空访问记录
-    r.ManualEmptyVisitorRecordsOf("chery")
+    ratelimits[qw].ManualEmptyVisitorRecordsOf(qw)
     
-	data := fmt.Sprintf("chery清空访问记录前,剩余:%d", r.RemainingVisits("chery"))
+	data := fmt.Sprintf(qw + "清空访问记录后,剩余:%d", ratelimits[qw].RemainingVisits(qw))
 	msg, _ := json.Marshal(&JsonRes{Code: 200, Msg: data })
 	w.Write(msg)
 	return
 }
+
+
 // 访问次数
-func index(w http.ResponseWriter, req *http.Request) {
+func example(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/json")
 	defer func() {
 		//捕获 panic
 		if err := recover(); err != nil {
-			log.Println("查询sql发生错误", err)
-    		msg, _ := json.Marshal(&JsonRes{Code: 4000, Msg: " 500 NOT FOUND !"})
+		    log.Println(err)
+    		msg, _ := json.Marshal(&JsonRes{Code: 4000, Msg: " 500 index NOT FOUND !"})
     		w.Write(msg)
 		}
 	}()
 	
-
-	allow := r.AllowVisit("chery")
+	r.ParseForm() // 解析参数
+	qw := r.PostFormValue("qw")
+	
+	//判断是否有值
+	if _, ok := ratelimits[qw]; !ok {
+		msg, _ := json.Marshal(&JsonRes{Code: 404, Msg: " 404 qw NOT FOUND !"})
+		w.Write(msg)
+		return
+	}
+	
+    //步骤四：调用函数判断某用户是否允许访问
+	allow := ratelimits[qw].AllowVisit(qw)
 	log.Println(allow)
+
+	
+	//步骤五(可选):程序退出前主动手动存盘
+	err := ratelimits[qw].SaveToDiscOnce() //在自动备份的同时，还支持手动备份，一般在程序要退出时调用此函数
+	if err == nil {
+		log.Println("完成手动数据备份")
+	} else {
+		log.Println(err)
+	}
 	
 	
-	data := fmt.Sprintf("chery清空访问记录前,剩余:%d", r.RemainingVisits("chery"))
+	data := fmt.Sprintf(qw+"剩余:%d", ratelimits[qw].RemainingVisits(qw))
 	msg, _ := json.Marshal(&JsonRes{Code: 200, Msg: data })
 	w.Write(msg)
 	return
 
 }
+
+
+
 
 
 
